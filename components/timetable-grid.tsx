@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { type Batch, WEEKDAYS } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -11,10 +11,12 @@ interface TimetableGridProps {
   data: Batch[]
 }
 
-export function TimetableGrid({ data }: TimetableGridProps) {
+export function TimetableGrid({ data }: TimetableGridProps): React.ReactElement {
   const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredData = data.filter((batch) => batch.batch.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredData = data.filter((batch) =>
+    typeof batch.batch === "string" && batch.batch.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   if (!data || data.length === 0) {
     return (
@@ -34,7 +36,7 @@ export function TimetableGrid({ data }: TimetableGridProps) {
           type="text"
           placeholder="Search batches..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>

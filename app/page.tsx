@@ -4,9 +4,10 @@ import { Suspense } from "react"
 import { getPublicTimetable } from "@/lib/api"
 import { TimetableGrid } from "@/components/timetable-grid"
 import { Header } from "@/components/header"
-// Removed: import { LoadingSpinner } from "@/components/loading-spinner"
-// import { ErrorBoundary } from "@/components/error-boundary"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { ErrorBoundary } from "@/components/error-boundary"
 
+// Fix: Move revalidate to the correct location
 export const revalidate = 300 // Revalidate every 5 minutes
 
 async function TimetableContent() {
@@ -47,8 +48,7 @@ export default function HomePage() {
           <Suspense
             fallback={
               <div className="flex justify-center items-center min-h-[400px]">
-                {/* Removed: <LoadingSpinner size="lg" /> */}
-                <span>Loading...</span>
+                <LoadingSpinner size="lg" />
               </div>
             }
           >

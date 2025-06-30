@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useState, useEffect } from "react"
 import { getRawTimetable, updateTimetable, type Batch, WEEKDAYS, type Session } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,15 +49,15 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     if (localChanges[selectedBatch]) {
       return localChanges[selectedBatch]
     }
-
+    return batches.find((batch: Batch) => batch.batch === selectedBatch) || null
     return batches.find((batch) => batch.batch === selectedBatch) || null
   }
-
   const updateLocalBatch = (batchData: Batch) => {
-    setLocalChanges((prev) => ({
+    setLocalChanges((prev: Record<string, Batch>) => ({
       ...prev,
       [selectedBatch!]: batchData,
     }))
+  }
   }
 
   const addSession = (day: string) => {
@@ -82,7 +83,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     const currentBatch = getCurrentBatchData()
     if (!currentBatch) return
 
-    const sessions = currentBatch[day] || []
+    const updatedSessions = sessions.filter((_: Session, i: number) => i !== index)
     const updatedSessions = sessions.filter((_, i) => i !== index)
 
     const updatedBatch = {
@@ -117,21 +118,21 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     try {
       setSaving(true)
 
-      // Merge local changes with existing data
-      const updatedData = batches.map((batch) => {
+      const updatedData = batches.map((batch: Batch) => {
         if (batch.batch === selectedBatch) {
           return localChanges[selectedBatch]
         }
         return batch
       })
+      })
 
       await updateTimetable(token, updatedData)
 
-      // Clear local changes and reload data
-      setLocalChanges((prev) => {
+      setLocalChanges((prev: Record<string, Batch>) => {
         const newChanges = { ...prev }
         delete newChanges[selectedBatch]
         return newChanges
+      })
       })
 
       await loadBatches()
@@ -168,7 +169,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
           )}
         </div>
 
-        <div className="space-y-2 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-thin">
+          {batches.map((batch: Batch) => (
           {batches.map((batch) => (
             <Card
               key={batch.batch}
@@ -268,7 +269,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                                 <div>
                                   <label className="block text-xs font-medium text-muted-foreground mb-1">Time</label>
                                   <Input
-                                    value={session.time}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "time", e.target.value)}
                                     onChange={(e) => updateSession(day, index, "time", e.target.value)}
                                     placeholder="e.g., 9:00-10:00"
                                     className="text-sm"
@@ -279,7 +280,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                                     Subject
                                   </label>
                                   <Input
-                                    value={session.subject}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "subject", e.target.value)}
                                     onChange={(e) => updateSession(day, index, "subject", e.target.value)}
                                     placeholder="Subject name"
                                     className="text-sm"
@@ -288,7 +289,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                                 <div>
                                   <label className="block text-xs font-medium text-muted-foreground mb-1">Room</label>
                                   <Input
-                                    value={session.room}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "room", e.target.value)}
                                     onChange={(e) => updateSession(day, index, "room", e.target.value)}
                                     placeholder="Room number"
                                     className="text-sm"
@@ -299,7 +300,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                                     Teacher
                                   </label>
                                   <Input
-                                    value={session.teacher}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "teacher", e.target.value)}
                                     onChange={(e) => updateSession(day, index, "teacher", e.target.value)}
                                     placeholder="Teacher name"
                                     className="text-sm"

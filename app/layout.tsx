@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -12,8 +12,11 @@ export const metadata: Metadata = {
   description: "Modern timetable management system with admin dashboard and public viewer",
   keywords: ["timetable", "schedule", "admin", "education", "management"],
   authors: [{ name: "Timetable Team" }],
-  viewport: "width=device-width, initial-scale=1",
-    generator: 'v0.dev'
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 }
 
 export default function RootLayout({
