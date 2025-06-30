@@ -1,73 +1,151 @@
-import React, { useEffect, useState } from 'react';
-import { fetchTimetable, updateTimetable } from '../api';
+"use client"
 
-export default function Dashboard({ token, onLogout }) {
-  const [data, setData] = useState([]);
-  const [edited, setEdited] = useState({}); // { batch: { Monday: [...], ... } }
+import { useState, useEffect } from "react"
+import { useAuth } from "../contexts/AuthContext"
+import { fetchTimetable, updateTimetable } from "../api"
+import BatchList from "./BatchList"
+import TimetableEditor from "./TimetableEditor"
+import Header from "./Header"
+import Toast from "./Toast"
 
+const Dashboard = () => {
+  const { token } = useAuth()
+  const [timetableData, setTimetableData] = useState([])
+  const [selectedBatch, setSelectedBatch] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [localChanges, setLocalChanges] = useState({})
+
+  // Fetch timetable data on component mount
   useEffect(() => {
-    fetchTimetable(token).then(setData);
-  }, [token]);
+    loadTimetableData()
+  }, [token])
 
-  const handleField = (batch, day, idx, field, value) => {
-    setEdited(prev => ({
-      ...prev,
-      [batch]: {
-        ...prev[batch],
-        [day]: prev[batch]?.[day].map((item,i)=>
-          i===idx ? {...item, [field]: value} : item
-        )
+  const loadTimetableData = async () => {
+    try {
+      setLoading(true)
+      const data = await fetchTimetable(token)
+      setTimetableData(data)
+
+      // Select first batch by default if none selected
+      if (!selectedBatch && data.length > 0) {
+        setSelectedBatch(data[0].batch)
       }
-    }));
-  };
+    } catch (error) {
+      showToast("Failed to load timetable data", "error")
+      console.error("Load timetable error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const save = async (batch) => {
-    const updated = edited[batch] || data.find(d=>d.batch===batch);
-    await updateTimetable(token, [{ batch, ...updated }]);
-    setEdited(prev => {
-      const { [batch]:_, ...rest } = prev;
-      return rest;
-    });
-    setData(d=>d.map(item=>item.batch===batch ? { batch, ...updated } : item));
-  };
+  const handleSave = async () => {
+    if (Object.keys(localChanges).length === 0) {
+      showToast("No changes to save", "info")
+      return
+    }
+
+    try {
+      setSaving(true)
+
+      // Merge local changes with existing data
+      const updatedData = timetableData.map((batch) => {
+        if (localChanges[batch.batch]) {
+          return { ...batch, ...localChanges[batch.batch] }
+        }
+        return batch
+      })
+
+      await updateTimetable(token, updatedData)
+
+      // Clear local changes and reload data
+      setLocalChanges({})
+      await loadTimetableData()
+
+      showToast("Timetable updated successfully", "success")
+    } catch (error) {
+      showToast(error.message || "Failed to save changes", "error")
+      console.error("Save error:", error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleBatchChange = (batchData) => {
+    setLocalChanges((prev) => ({
+      ...prev,
+      [selectedBatch]: batchData,
+    }))
+  }
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 5000)
+  }
+
+  const getCurrentBatchData = () => {
+    if (!selectedBatch) return null
+
+    // Return local changes if available, otherwise original data
+    if (localChanges[selectedBatch]) {
+      return localChanges[selectedBatch]
+    }
+
+    return timetableData.find((batch) => batch.batch === selectedBatch)
+  }
+
+  const hasUnsavedChanges = Object.keys(localChanges).length > 0
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header onSave={handleSave} saving={false} hasChanges={false} />
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+            <span className="text-gray-600">Loading timetable data...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">Timetable Admin</h1>
-        <button onClick={onLogout} className="text-red-500">Logout</button>
-      </div>
-      {data.map(batchObj => (
-        <div key={batchObj.batch} className="mb-6 bg-white p-4 rounded shadow">
-          <h2 className="text-lg font-semibold mb-2">{batchObj.batch}</h2>
-          {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(day=>(
-            <div key={day} className="mb-3">
-              <h3 className="font-medium">{day}</h3>
-              <div>
-                { (edited[batchObj.batch]?.[day] || batchObj[day]).map((sess,i)=>(
-                  <div key={i} className="flex space-x-2 mb-1">
-                    {['time','subject','room','teacher'].map(field=>(
-                      <input
-                        key={field}
-                        value={(edited[batchObj.batch]?.[day]||batchObj[day])[i][field]}
-                        onChange={e=>handleField(batchObj.batch, day, i, field, e.target.value)}
-                        className="border p-1 flex-1 rounded"
-                      />
-                    ))}
-                  </div>
-                )) }
+    <div className="min-h-screen bg-gray-50">
+      <Header onSave={handleSave} saving={saving} hasChanges={hasUnsavedChanges} />
+
+      <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
+        {/* Left Column - Batch List */}
+        <div className="w-full lg:w-80 bg-white border-r border-gray-200 flex-shrink-0">
+          <BatchList
+            batches={timetableData}
+            selectedBatch={selectedBatch}
+            onSelectBatch={setSelectedBatch}
+            hasUnsavedChanges={hasUnsavedChanges}
+          />
+        </div>
+
+        {/* Right Column - Timetable Editor */}
+        <div className="flex-1 overflow-hidden">
+          {selectedBatch ? (
+            <TimetableEditor batchData={getCurrentBatchData()} onDataChange={handleBatchChange} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="text-gray-400 text-6xl mb-4">📅</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Batch</h3>
+                <p className="text-gray-500">Choose a batch from the left panel to edit its timetable</p>
               </div>
             </div>
-          ))}
-          <button 
-            onClick={()=>save(batchObj.batch)}
-            className="mt-2 bg-green-600 text-white py-1 px-3 rounded"
-          >
-            Save {batchObj.batch}
-          </button>
+          )}
         </div>
-      ))}
+      </div>
+
+      {/* Toast Notifications */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
-  );
+  )
 }
- 
+
+export default Dashboard
