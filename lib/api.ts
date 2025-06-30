@@ -1,58 +1,45 @@
-// API configuration and typed fetch functions
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://timetable-api-9xsz.onrender.com"
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "tt_api_key"
+import { type Batch, type LoginResponse, ApiError } from "./types"
 
-// Types
-export interface Session {
-  time: string
-  subject: string
-  room: string
-  teacher: string
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY
+
+if (!API_URL || !API_KEY) {
+  throw new Error("Missing required environment variables: NEXT_PUBLIC_API_URL and NEXT_PUBLIC_API_KEY")
 }
 
-export interface Batch {
-  batch: string
-  Monday?: Session[]
-  Tuesday?: Session[]
-  Wednesday?: Session[]
-  Thursday?: Session[]
-  Friday?: Session[]
-  Saturday?: Session[]
-  [key: string]: any
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new ApiError({
+      message: errorText || `HTTP error! status: ${response.status}`,
+      status: response.status,
+    })
+  }
+
+  return response.json()
 }
 
-export interface LoginResponse {
-  token: string
-  message?: string
-}
-
-// Public API functions
 export async function getPublicTimetable(): Promise<Batch[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/timetable`, {
+    const response = await fetch(`${API_URL}/api/timetable`, {
+      method: "GET",
       headers: {
-        "x-api-key": API_KEY,
         "Content-Type": "application/json",
+        "x-api-key": API_KEY,
       },
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      next: { revalidate: 300 }, // Revalidate every 5 minutes
     })
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch timetable: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return Array.isArray(data) ? data : []
+    return handleResponse<Batch[]>(response)
   } catch (error) {
-    console.error("Get public timetable error:", error)
-    throw new Error("Failed to fetch timetable data")
+    console.error("Failed to fetch public timetable:", error)
+    throw error
   }
 }
 
-// Admin API functions
 export async function adminLogin(username: string, password: string): Promise<LoginResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/admin/login`, {
+    const response = await fetch(`${API_URL}/admin/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,85 +47,44 @@ export async function adminLogin(username: string, password: string): Promise<Lo
       body: JSON.stringify({ username, password }),
     })
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.message || `Login failed: ${response.status}`)
-    }
-
-    return data
+    return handleResponse<LoginResponse>(response)
   } catch (error) {
-    console.error("Admin login error:", error)
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error("Login failed. Please check your credentials.")
+    console.error("Admin login failed:", error)
+    throw error
   }
 }
 
 export async function getRawTimetable(token: string): Promise<Batch[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/admin/raw-timetable`, {
+    const response = await fetch(`${API_URL}/admin/raw-timetable`, {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ token }),
       cache: "no-store", // Always fetch fresh data for admin
     })
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication failed. Please login again.")
-      }
-      throw new Error(`Failed to fetch raw timetable: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return Array.isArray(data) ? data : []
+    return handleResponse<Batch[]>(response)
   } catch (error) {
-    console.error("Get raw timetable error:", error)
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error("Failed to fetch timetable data")
+    console.error("Failed to fetch raw timetable:", error)
+    throw error
   }
 }
 
-export async function updateTimetable(token: string, data: Batch[]): Promise<{ message: string }> {
+export async function updateTimetable(token: string, data: Batch[]): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/admin/update`, {
+    const response = await fetch(`${API_URL}/admin/update`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ token, data }),
     })
 
-    const result = await response.json()
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication failed. Please login again.")
-      }
-      throw new Error(result.message || `Update failed: ${response.status}`)
-    }
-
-    return result
+    await handleResponse<void>(response)
   } catch (error) {
-    console.error("Update timetable error:", error)
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error("Failed to update timetable")
+    console.error("Failed to update timetable:", error)
+    throw error
   }
 }
-
-// Utility function to validate session data
-export function validateSession(session: Partial<Session>): session is Session {
-  return !!(session.time && session.subject && session.room && session.teacher)
-}
-
-// Utility function to get weekdays
-export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const
-export type Weekday = (typeof WEEKDAYS)[number]

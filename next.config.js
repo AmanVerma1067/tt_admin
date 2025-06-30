@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverActions: true,
+    optimizePackageImports: ["lucide-react"],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -13,11 +13,24 @@ const nextConfig = {
     domains: [],
     unoptimized: true,
   },
-  async rewrites() {
+  async headers() {
     return [
       {
-        source: "/api/:path*",
-        destination: "https://timetable-api-9xsz.onrender.com/:path*",
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "origin-when-cross-origin",
+          },
+        ],
       },
     ]
   },

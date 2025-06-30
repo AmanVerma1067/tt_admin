@@ -1,100 +1,53 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { getRawTimetable, type Batch } from "@/lib/api"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Calendar, Settings, Users, BarChart3 } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
-interface AdminSidebarProps {
-  token: string
-}
+const sidebarItems = [
+  { icon: Calendar, label: "Timetables", active: true },
+  { icon: Users, label: "Batches", active: false },
+  { icon: BarChart3, label: "Analytics", active: false },
+  { icon: Settings, label: "Settings", active: false },
+]
 
-export function AdminSidebar({ token }: AdminSidebarProps) {
-  const [batches, setBatches] = useState<Batch[]>([])
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    loadBatches()
-  }, [token])
-
-  const loadBatches = async () => {
-    try {
-      setLoading(true)
-      const data = await getRawTimetable(token)
-      setBatches(data)
-      if (data.length > 0 && !selectedBatch) {
-        setSelectedBatch(data[0].batch)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load batches")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="w-80 border-r bg-muted/10 p-4">
-        <div className="flex items-center justify-center h-32">
-          <LoadingSpinner size="lg" />
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="w-80 border-r bg-muted/10 p-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-destructive">
-              <p className="text-sm">{error}</p>
-              <button onClick={loadBatches} className="mt-2 text-xs text-primary hover:underline">
-                Retry
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
+export function AdminSidebar() {
   return (
-    <div className="w-80 border-r bg-muted/10">
-      <div className="p-4">
-        <h2 className="text-lg font-semibold mb-4">Batches</h2>
-        <ScrollArea className="h-[calc(100vh-8rem)]">
-          <div className="space-y-2">
-            {batches.map((batch) => (
-              <Card
-                key={batch.batch}
-                className={`cursor-pointer transition-colors hover:bg-accent ${
-                  selectedBatch === batch.batch ? "bg-accent border-primary" : ""
-                }`}
-                onClick={() => setSelectedBatch(batch.batch)}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Batch {batch.batch}</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <Badge variant="secondary" className="text-xs">
-                    {
-                      Object.keys(batch).filter(
-                        (key) => key !== "batch" && Array.isArray(batch[key]) && batch[key].length > 0,
-                      ).length
-                    }{" "}
-                    days
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
+    <div className="w-64 border-r bg-muted/10 p-4">
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold">Admin Panel</h2>
+        <p className="text-sm text-muted-foreground">Timetable Management</p>
       </div>
+
+      <nav className="space-y-2">
+        {sidebarItems.map((item) => (
+          <Button
+            key={item.label}
+            variant={item.active ? "default" : "ghost"}
+            className="w-full justify-start"
+            disabled={!item.active}
+          >
+            <item.icon className="mr-2 h-4 w-4" />
+            {item.label}
+          </Button>
+        ))}
+      </nav>
+
+      <Card className="mt-8">
+        <CardContent className="p-4">
+          <h3 className="font-medium mb-2">Quick Stats</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Batches</span>
+              <span className="font-medium">12</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Active Sessions</span>
+              <span className="font-medium">156</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

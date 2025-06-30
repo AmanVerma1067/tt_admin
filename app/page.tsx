@@ -1,35 +1,37 @@
-"use client"
-
 import { Suspense } from "react"
 import { getPublicTimetable } from "@/lib/api"
-import { TimetableGrid } from "@/components/timetable-grid"
-import { Header } from "@/components/header"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { TimetableViewer } from "@/components/timetable-viewer"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ThemeToggle } from "@/components/theme-toggle"
 
-// Fix: Move revalidate to the correct location
-export const revalidate = 300 // Revalidate every 5 minutes
+function TimetableViewerSkeleton() {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Card key={i} className="p-6">
+          <Skeleton className="h-6 w-32 mb-4" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, j) => (
+              <Skeleton key={j} className="h-4 w-full" />
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
 
 async function TimetableContent() {
   try {
-    const timetableData = await getPublicTimetable()
-    return <TimetableGrid data={timetableData} />
+    const batches = await getPublicTimetable()
+    return <TimetableViewer batches={batches} />
   } catch (error) {
-    console.error("Failed to fetch timetable:", error)
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <div className="text-6xl mb-4">📅</div>
-        <h2 className="text-2xl font-semibold mb-2">Unable to Load Timetable</h2>
-        <p className="text-muted-foreground mb-4">
-          We're having trouble loading the timetable data. Please try again later.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
+      <Card className="p-8 text-center">
+        <h2 className="text-xl font-semibold text-red-600 mb-2">Failed to Load Timetable</h2>
+        <p className="text-muted-foreground">Unable to fetch timetable data. Please try again later.</p>
+      </Card>
     )
   }
 }
@@ -37,25 +39,27 @@ async function TimetableContent() {
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4 animate-fade-in">Academic Timetable</h1>
-          <p className="text-xl text-muted-foreground animate-fade-in">View schedules for all batches and courses</p>
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Timetable Viewer</h1>
+            <p className="text-muted-foreground">Academic Schedule Overview</p>
+          </div>
+          <ThemeToggle />
         </div>
+      </header>
 
-        <ErrorBoundary>
-          <Suspense
-            fallback={
-              <div className="flex justify-center items-center min-h-[400px]">
-                <LoadingSpinner size="lg" />
-              </div>
-            }
-          >
-            <TimetableContent />
-          </Suspense>
-        </ErrorBoundary>
+      <main className="container mx-auto px-4 py-8">
+        <Suspense fallback={<TimetableViewerSkeleton />}>
+          <TimetableContent />
+        </Suspense>
       </main>
+
+      <footer className="border-t mt-16">
+        <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
+          <p>&copy; 2024 Timetable Viewer. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   )
 }

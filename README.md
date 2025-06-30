@@ -1,30 +1,43 @@
-# Timetable Admin Panel
+# Timetable Viewer & Admin Panel
 
-A modern, responsive web application for managing academic timetables. Built with React.js and TailwindCSS, designed to work with an Express/MongoDB backend.
+A full-stack Next.js application for viewing and managing academic timetables with a modern, responsive interface.
 
 ## Features
 
-- **Secure Authentication**: JWT-based login system for admin access
-- **Batch Management**: View and select from all available batches
-- **Interactive Timetable Editor**: Edit schedules with inline input fields
-- **Real-time Changes**: Local state management with save confirmation
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Modern UI**: Clean, professional interface with TailwindCSS
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Accessibility**: ARIA labels and keyboard navigation support
+### Public Timetable Viewer
+- 📅 Clean, card-based timetable display
+- 🔍 Real-time search functionality
+- 📱 Fully responsive design
+- 🌙 Dark/light mode support
+- ♿ Accessibility-first approach
 
-## Prerequisites
+### Admin Panel
+- 🔐 Secure JWT-based authentication
+- ✏️ Inline editing of timetable sessions
+- ➕ Add/remove sessions dynamically
+- 💾 Real-time save functionality
+- 📊 Batch management interface
 
-- Node.js (v14 or higher)
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: TailwindCSS + shadcn/ui
+- **Authentication**: JWT with HttpOnly cookies
+- **Deployment**: Vercel/Render ready
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+ 
 - npm or yarn
-- Express/MongoDB backend running on port 3000
 
-## Installation
+### Installation
 
 1. **Clone the repository**
    \`\`\`bash
    git clone <repository-url>
-   cd timetable-admin-panel
+   cd timetable-viewer-admin
    \`\`\`
 
 2. **Install dependencies**
@@ -32,148 +45,177 @@ A modern, responsive web application for managing academic timetables. Built wit
    npm install
    \`\`\`
 
-3. **Environment Configuration**
-   
-   Create a `.env` file in the root directory:
+3. **Environment Setup**
+   Create a `.env.local` file in the root directory:
    \`\`\`env
-   REACT_APP_API_BASE_URL=http://localhost:3000
+   NEXT_PUBLIC_API_URL=https://timetable-api-9xsz.onrender.com
+   NEXT_PUBLIC_API_KEY=tt_api_key
+   JWT_SECRET=your_jwt_secret_here
    \`\`\`
 
-   For production, update the URL to your deployed backend.
-
-4. **Start the development server**
+4. **Run the development server**
    \`\`\`bash
-   npm start
+   npm run dev
    \`\`\`
 
-   The application will open at `http://localhost:3001`
+5. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-## Backend API Requirements
+## API Integration
 
-The application expects the following API endpoints:
+The application integrates with the following endpoints:
 
-### Authentication
-- `POST /admin/login`
-  - Body: `{ "username": "string", "password": "string" }`
-  - Response: `{ "token": "jwt_token" }`
+### Public Endpoints
+- `GET /api/timetable` - Fetch public timetable data
+  - Headers: `x-api-key: ${NEXT_PUBLIC_API_KEY}`
 
-### Timetable Management
-- `GET /admin/raw-timetable`
-  - Headers: `Authorization: Bearer <token>`
-  - Response: Array of batch objects with timetable data
+### Admin Endpoints
+- `POST /admin/login` - Admin authentication
+  - Body: `{ username: string, password: string }`
+  - Returns: `{ token: string }`
 
-- `POST /admin/update`
-  - Headers: `Authorization: Bearer <token>`
-  - Body: `{ "token": "jwt_token", "data": [...] }`
-  - Response: Success/error message
+- `POST /admin/raw-timetable` - Fetch editable timetable data
+  - Body: `{ token: string }`
+  - Returns: `Batch[]`
+
+- `POST /admin/update` - Update timetable data
+  - Body: `{ token: string, data: Batch[] }`
+
+## Data Structure
+
+\`\`\`typescript
+interface Session {
+  time: string      // e.g., "9:00-10:00"
+  subject: string   // Subject name
+  room: string      // Room number/name
+  teacher: string   // Teacher name
+}
+
+interface Batch {
+  batch: string     // Batch identifier
+  Monday: Session[]
+  Tuesday: Session[]
+  Wednesday: Session[]
+  Thursday: Session[]
+  Friday: Session[]
+  Saturday: Session[]
+}
+\`\`\`
+
+## Deployment
+
+### Vercel (Recommended)
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy automatically on push
+
+### Render
+1. Connect your GitHub repository
+2. Set build command: `npm run build`
+3. Set start command: `npm run start`
+4. Add environment variables
+5. Deploy
+
+### Manual Deployment
+\`\`\`bash
+npm run build
+npm run start
+\`\`\`
 
 ## Project Structure
 
 \`\`\`
-src/
-├── components/
-│   ├── Login.jsx          # Authentication form
-│   ├── Dashboard.jsx      # Main dashboard layout
-│   ├── Header.jsx         # Top navigation bar
-│   ├── BatchList.jsx      # Left sidebar with batch selection
-│   ├── TimetableEditor.jsx # Main editing interface
-│   └── Toast.jsx          # Notification component
-├── contexts/
-│   └── AuthContext.jsx    # Authentication state management
-├── api.js                 # API communication functions
-├── App.jsx               # Main application component
-├── index.jsx             # Application entry point
-└── index.css             # Global styles and Tailwind imports
+app/
+├── layout.tsx              # Root layout with theme provider
+├── page.tsx                # Public timetable viewer
+├── globals.css             # Global styles and CSS variables
+└── admin/
+    ├── layout.tsx          # Admin layout with auth guard
+    ├── page.tsx            # Admin dashboard
+    └── login/
+        └── page.tsx        # Admin login form
+
+components/
+├── ui/                     # shadcn/ui components
+├── timetable-viewer.tsx    # Public timetable display
+├── admin-dashboard.tsx     # Admin editing interface
+├── admin-sidebar.tsx       # Admin navigation
+├── admin-header.tsx        # Admin header with logout
+├── theme-provider.tsx      # Theme context provider
+└── theme-toggle.tsx        # Dark/light mode toggle
+
+lib/
+├── api.ts                  # API integration functions
+├── types.ts                # TypeScript type definitions
+└── utils.ts                # Utility functions
 \`\`\`
 
-## Usage
+## Features in Detail
 
-### Login
-1. Navigate to `/login`
-2. Enter admin credentials
-3. On successful authentication, you'll be redirected to the dashboard
+### Authentication Flow
+1. Admin visits `/admin` → redirected to `/admin/login`
+2. Login form submits credentials to API
+3. JWT token stored in HttpOnly cookie
+4. Subsequent admin requests include token
+5. Logout clears cookie and redirects
 
-### Managing Timetables
-1. **Select a Batch**: Click on any batch from the left sidebar
-2. **Edit Sessions**: 
-   - Click on input fields to edit time, subject, room, or teacher
-   - Use "Add Session" to create new time slots
-   - Use "Remove" to delete sessions
-3. **Save Changes**: Click the "Save" button in the header
-4. **Switch Batches**: Select different batches (with unsaved changes warning)
+### Timetable Management
+- **Batch Selection**: Sidebar navigation between batches
+- **Day Tabs**: Organized by weekdays (Monday-Saturday)
+- **Session Editing**: Inline forms for time, subject, room, teacher
+- **Dynamic Operations**: Add/remove sessions with real-time UI updates
+- **Bulk Save**: Single save operation for all changes
 
-### Features
-- **Auto-save Warning**: Prevents data loss when switching batches or logging out
-- **Loading States**: Visual feedback during API operations
-- **Error Handling**: Clear error messages for failed operations
-- **Responsive Design**: Optimized for both desktop and mobile use
+### Responsive Design
+- **Mobile-First**: Optimized for mobile devices
+- **Tablet Support**: Adapted layouts for medium screens
+- **Desktop Enhanced**: Full-featured experience on large screens
+- **Touch-Friendly**: Appropriate touch targets and interactions
 
-## Development
+## Security Features
 
-### Available Scripts
+- **HttpOnly Cookies**: JWT tokens not accessible via JavaScript
+- **CSRF Protection**: SameSite cookie attributes
+- **Input Validation**: Client and server-side validation
+- **Error Handling**: Graceful error states and user feedback
+- **Route Protection**: Server-side authentication checks
 
-- `npm start` - Start development server
-- `npm build` - Build for production
-- `npm test` - Run test suite
-- `npm eject` - Eject from Create React App (irreversible)
+## Performance Optimizations
 
-### Customization
+- **Server Components**: Reduced client-side JavaScript
+- **Static Generation**: Pre-rendered public pages
+- **Image Optimization**: Next.js automatic image optimization
+- **Code Splitting**: Automatic route-based code splitting
+- **Caching**: Strategic API response caching
 
-#### Styling
-- Modify `tailwind.config.js` for theme customization
-- Update color schemes in the config file
-- Add custom CSS in `src/index.css`
+## Accessibility
 
-#### API Integration
-- Update `src/api.js` for different backend endpoints
-- Modify authentication flow in `AuthContext.jsx`
-- Adjust data structures in components as needed
-
-## Deployment
-
-### Build for Production
-\`\`\`bash
-npm run build
-\`\`\`
-
-### Environment Variables
-Set the following environment variable for production:
-\`\`\`env
-REACT_APP_API_BASE_URL=https://your-backend-domain.com
-\`\`\`
-
-### Deployment Options
-- **Vercel**: Connect your GitHub repository for automatic deployments
-- **Netlify**: Drag and drop the `build` folder
-- **AWS S3**: Upload build files to S3 bucket with static hosting
-- **Traditional Hosting**: Upload build files to your web server
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+- **Semantic HTML**: Proper heading hierarchy and landmarks
+- **ARIA Labels**: Screen reader support
+- **Keyboard Navigation**: Full keyboard accessibility
+- **Color Contrast**: WCAG compliant color schemes
+- **Focus Management**: Visible focus indicators
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Support
 
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the documentation for common solutions
+For issues and questions:
+- Create an issue on GitHub
+- Check the documentation
+- Review the API integration guide
 
 ---
 
-**Note**: This application is designed to work with a specific Express/MongoDB backend. Ensure your backend implements the required API endpoints before deployment.
+Built with ❤️ using Next.js, TypeScript, and TailwindCSS

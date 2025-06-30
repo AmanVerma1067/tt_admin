@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 
-export default function AdminLoginPage() {
+export default function AdminLoginDevPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -23,31 +23,15 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      // For development - use dummy credentials
+      // Development mode - bypass API call
       if (username === "admin" && password === "admin") {
         // Set a dummy JWT cookie for development
         const dummyToken = "dev_token_" + Date.now()
-        document.cookie = `jwt=${dummyToken}; path=/; samesite=strict; max-age=86400`
+        document.cookie = `jwt=${dummyToken}; path=/; secure; samesite=strict; max-age=86400`
         router.push("/admin")
-        return
+      } else {
+        throw new Error("Invalid credentials. Use admin/admin for development.")
       }
-
-      // For production - call the actual API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Invalid credentials")
-      }
-
-      const { token } = await response.json()
-      document.cookie = `jwt=${token}; path=/; secure; samesite=strict; max-age=86400`
-      router.push("/admin")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {
@@ -59,8 +43,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <CardDescription>Sign in to access the timetable admin panel</CardDescription>
+          <CardTitle className="text-2xl">Admin Login (Dev Mode)</CardTitle>
+          <CardDescription>Development credentials: admin/admin</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -73,7 +57,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="Enter your username"
+                placeholder="admin"
               />
             </div>
 
@@ -86,7 +70,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="Enter your password"
+                placeholder="admin"
               />
             </div>
 
@@ -104,7 +88,11 @@ export default function AdminLoginPage() {
 
           <div className="mt-4 p-3 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground">
-              <strong>Development:</strong> Use admin/admin
+              <strong>Dev Credentials:</strong>
+              <br />
+              Username: admin
+              <br />
+              Password: admin
             </p>
           </div>
         </CardContent>

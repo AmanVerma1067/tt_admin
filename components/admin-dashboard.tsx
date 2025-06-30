@@ -1,341 +1,231 @@
 "use client"
 
-import * as React from "react"
-import { useState, useEffect } from "react"
-import { getRawTimetable, updateTimetable, type Batch, WEEKDAYS, type Session } from "@/lib/api"
+import { useState } from "react"
+import type { Batch, Session } from "@/lib/types"
+import { updateTimetable } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { Plus, Trash2, Save } from "lucide-react"
-import toast from "react-hot-toast"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Trash2, Save, Loader2 } from "lucide-react"
 
 interface AdminDashboardProps {
-  token: string
+  initialBatches: Batch[]
 }
 
-export function AdminDashboard({ token }: AdminDashboardProps) {
-  const [batches, setBatches] = useState<Batch[]>([])
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null)
-  const [localChanges, setLocalChanges] = useState<Record<string, Batch>>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const
 
-  useEffect(() => {
-    loadBatches()
-  }, [token])
+export function AdminDashboard({ initialBatches }: AdminDashboardProps) {
+  const [batches, setBatches] = useState<Batch[]>(initialBatches)
+  const [selectedBatch, setSelectedBatch] = useState(batches[0]?.batch || "")
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
-  const loadBatches = async () => {
+  const currentBatch = batches.find((b) => b.batch === selectedBatch)
+
+  const updateSession = (day: keyof Batch, sessionIndex: number, field: keyof Session, value: string) => {
+    setBatches((prev) =>
+      prev.map((batch) => {
+        if (batch.batch !== selectedBatch) return batch
+
+        const sessions = [...((batch[day] as Session[]) || [])]
+        sessions[sessionIndex] = { ...sessions[sessionIndex], [field]: value }
+
+        return { ...batch, [day]: sessions }
+      }),
+    )
+  }
+
+  const addSession = (day: keyof Batch) => {
+    setBatches((prev) =>
+      prev.map((batch) => {
+        if (batch.batch !== selectedBatch) return batch
+
+        const sessions = [...((batch[day] as Session[]) || [])]
+        sessions.push({ time: "", subject: "", room: "", teacher: "" })
+
+        return { ...batch, [day]: sessions }
+      }),
+    )
+  }
+
+  const removeSession = (day: keyof Batch, sessionIndex: number) => {
+    setBatches((prev) =>
+      prev.map((batch) => {
+        if (batch.batch !== selectedBatch) return batch
+
+        const sessions = [...((batch[day] as Session[]) || [])]
+        sessions.splice(sessionIndex, 1)
+
+        return { ...batch, [day]: sessions }
+      }),
+    )
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const data = await getRawTimetable(token)
-      setBatches(data)
-      if (data.length > 0 && !selectedBatch) {
-        setSelectedBatch(data[0].batch)
+      const token = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("jwt="))
+        ?.split("=")[1]
+
+      if (!token) {
+        throw new Error("No authentication token found")
       }
+
+      await updateTimetable(token, batches)
+      toast({
+        title: "Success",
+        description: "Timetable updated successfully",
+      })
     } catch (error) {
-      toast.error("Failed to load batches")
-      console.error("Load batches error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update timetable",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const getCurrentBatchData = (): Batch | null => {
-    if (!selectedBatch) return null
-
-    // Return local changes if available, otherwise original data
-    if (localChanges[selectedBatch]) {
-      return localChanges[selectedBatch]
-    }
-    return batches.find((batch: Batch) => batch.batch === selectedBatch) || null
-    return batches.find((batch) => batch.batch === selectedBatch) || null
-  }
-  const updateLocalBatch = (batchData: Batch) => {
-    setLocalChanges((prev: Record<string, Batch>) => ({
-      ...prev,
-      [selectedBatch!]: batchData,
-    }))
-  }
-  }
-
-  const addSession = (day: string) => {
-    const currentBatch = getCurrentBatchData()
-    if (!currentBatch) return
-
-    const newSession: Session = {
-      time: "",
-      subject: "",
-      room: "",
-      teacher: "",
-    }
-
-    const updatedBatch = {
-      ...currentBatch,
-      [day]: [...(currentBatch[day] || []), newSession],
-    }
-
-    updateLocalBatch(updatedBatch)
-  }
-
-  const removeSession = (day: string, index: number) => {
-    const currentBatch = getCurrentBatchData()
-    if (!currentBatch) return
-
-    const updatedSessions = sessions.filter((_: Session, i: number) => i !== index)
-    const updatedSessions = sessions.filter((_, i) => i !== index)
-
-    const updatedBatch = {
-      ...currentBatch,
-      [day]: updatedSessions,
-    }
-
-    updateLocalBatch(updatedBatch)
-  }
-
-  const updateSession = (day: string, index: number, field: keyof Session, value: string) => {
-    const currentBatch = getCurrentBatchData()
-    if (!currentBatch) return
-
-    const sessions = [...(currentBatch[day] || [])]
-    sessions[index] = { ...sessions[index], [field]: value }
-
-    const updatedBatch = {
-      ...currentBatch,
-      [day]: sessions,
-    }
-
-    updateLocalBatch(updatedBatch)
-  }
-
-  const handleSave = async () => {
-    if (!selectedBatch || !localChanges[selectedBatch]) {
-      toast.error("No changes to save")
-      return
-    }
-
-    try {
-      setSaving(true)
-
-      const updatedData = batches.map((batch: Batch) => {
-        if (batch.batch === selectedBatch) {
-          return localChanges[selectedBatch]
-        }
-        return batch
-      })
-      })
-
-      await updateTimetable(token, updatedData)
-
-      setLocalChanges((prev: Record<string, Batch>) => {
-        const newChanges = { ...prev }
-        delete newChanges[selectedBatch]
-        return newChanges
-      })
-      })
-
-      await loadBatches()
-      toast.success("Timetable updated successfully")
-    } catch (error) {
-      toast.error("Failed to save changes")
-      console.error("Save error:", error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const hasUnsavedChanges = selectedBatch ? !!localChanges[selectedBatch] : false
-  const currentBatch = getCurrentBatchData()
-
-  if (loading) {
+  if (!currentBatch) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">No batches available</p>
+      </Card>
     )
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      {/* Sidebar */}
-      <div className="w-80 border-r bg-muted/10 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Batches</h2>
-          {hasUnsavedChanges && (
-            <Badge variant="destructive" className="text-xs">
-              Unsaved
-            </Badge>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold">Edit Timetable</h2>
+          <p className="text-muted-foreground">Manage sessions for {selectedBatch}</p>
         </div>
-
-          {batches.map((batch: Batch) => (
-          {batches.map((batch) => (
-            <Card
-              key={batch.batch}
-              className={`cursor-pointer transition-colors hover:bg-accent ${
-                selectedBatch === batch.batch ? "bg-accent border-primary" : ""
-              }`}
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  const confirm = window.confirm("You have unsaved changes. Are you sure you want to switch batches?")
-                  if (!confirm) return
-                }
-                setSelectedBatch(batch.batch)
-              }}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>Batch {batch.batch}</span>
-                  {localChanges[batch.batch] && <div className="w-2 h-2 bg-yellow-500 rounded-full" />}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Badge variant="secondary" className="text-xs">
-                  {WEEKDAYS.filter((day) => batch[day] && batch[day].length > 0).length} days
-                </Badge>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Button onClick={handleSave} disabled={loading}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Save className="mr-2 h-4 w-4" />
+          Save Changes
+        </Button>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {currentBatch ? (
-          <div className="h-full flex flex-col">
-            {/* Header */}
-            <div className="p-6 border-b bg-background">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">Batch {currentBatch.batch}</h1>
-                  <p className="text-muted-foreground">Edit the weekly schedule</p>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Batches</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {batches.map((batch) => (
+              <Button
+                key={batch.batch}
+                variant={selectedBatch === batch.batch ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setSelectedBatch(batch.batch)}
+              >
+                {batch.batch}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+
+        <div className="lg:col-span-3">
+          <Tabs defaultValue="Monday" className="w-full">
+            <TabsList className="grid w-full grid-cols-6">
+              {weekdays.map((day) => (
+                <TabsTrigger key={day} value={day} className="text-xs">
+                  {day.slice(0, 3)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {weekdays.map((day) => (
+              <TabsContent key={day} value={day} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{day} Sessions</h3>
+                  <Button onClick={() => addSession(day)} size="sm" variant="outline">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Session
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleSave}
-                  disabled={saving || !hasUnsavedChanges}
-                  className="flex items-center space-x-2"
-                >
-                  {saving ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
 
-            {/* Timetable Editor */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
-              <div className="space-y-6">
-                {WEEKDAYS.map((day) => {
-                  const sessions = currentBatch[day] || []
-
-                  return (
-                    <Card key={day}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">{day}</CardTitle>
-                          <Button
-                            onClick={() => addSession(day)}
-                            size="sm"
-                            variant="outline"
-                            className="flex items-center space-x-1"
-                          >
-                            <Plus className="h-4 w-4" />
-                            <span>Add Session</span>
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {sessions.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <div className="text-4xl mb-2">📝</div>
-                            <p className="text-sm">No sessions scheduled for {day}</p>
+                <div className="space-y-4">
+                  {((currentBatch[day] as Session[]) || []).map((session, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`time-${day}-${index}`}>Time</Label>
+                            <Input
+                              id={`time-${day}-${index}`}
+                              value={session.time}
+                              onChange={(e) => updateSession(day, index, "time", e.target.value)}
+                              placeholder="e.g., 9:00-10:00"
+                            />
                           </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {sessions.map((session, index) => (
-                              <div
-                                key={index}
-                                className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg"
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`subject-${day}-${index}`}>Subject</Label>
+                            <Input
+                              id={`subject-${day}-${index}`}
+                              value={session.subject}
+                              onChange={(e) => updateSession(day, index, "subject", e.target.value)}
+                              placeholder="Subject name"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`room-${day}-${index}`}>Room</Label>
+                            <Input
+                              id={`room-${day}-${index}`}
+                              value={session.room}
+                              onChange={(e) => updateSession(day, index, "room", e.target.value)}
+                              placeholder="Room number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`teacher-${day}-${index}`}>Teacher</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                id={`teacher-${day}-${index}`}
+                                value={session.teacher}
+                                onChange={(e) => updateSession(day, index, "teacher", e.target.value)}
+                                placeholder="Teacher name"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeSession(day, index)}
+                                className="shrink-0"
                               >
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">Time</label>
-                                  <Input
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "time", e.target.value)}
-                                    onChange={(e) => updateSession(day, index, "time", e.target.value)}
-                                    placeholder="e.g., 9:00-10:00"
-                                    className="text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">
-                                    Subject
-                                  </label>
-                                  <Input
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "subject", e.target.value)}
-                                    onChange={(e) => updateSession(day, index, "subject", e.target.value)}
-                                    placeholder="Subject name"
-                                    className="text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">Room</label>
-                                  <Input
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "room", e.target.value)}
-                                    onChange={(e) => updateSession(day, index, "room", e.target.value)}
-                                    placeholder="Room number"
-                                    className="text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">
-                                    Teacher
-                                  </label>
-                                  <Input
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSession(day, index, "teacher", e.target.value)}
-                                    onChange={(e) => updateSession(day, index, "teacher", e.target.value)}
-                                    placeholder="Teacher name"
-                                    className="text-sm"
-                                  />
-                                </div>
-                                <div className="flex items-end">
-                                  <Button
-                                    onClick={() => removeSession(day, index)}
-                                    variant="destructive"
-                                    size="sm"
-                                    className="w-full md:w-auto"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📅</div>
-              <h2 className="text-2xl font-semibold mb-2">Select a Batch</h2>
-              <p className="text-muted-foreground">Choose a batch from the sidebar to edit its timetable</p>
-            </div>
-          </div>
-        )}
+                  ))}
+
+                  {((currentBatch[day] as Session[]) || []).length === 0 && (
+                    <Card className="p-8 text-center">
+                      <p className="text-muted-foreground">No sessions for {day}</p>
+                      <Button onClick={() => addSession(day)} variant="outline" className="mt-4">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add First Session
+                      </Button>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
       </div>
     </div>
   )
